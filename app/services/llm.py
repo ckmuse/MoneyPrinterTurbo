@@ -19,6 +19,7 @@ MAX_SCRIPT_PROMPT_LENGTH = 2000
 MAX_SCRIPT_SYSTEM_PROMPT_LENGTH = 8000
 _THINK_BLOCK_RE = re.compile(r"<think\b[^>]*>.*?</think>", re.IGNORECASE | re.DOTALL)
 _UNCLOSED_THINK_BLOCK_RE = re.compile(r"<think\b[^>]*>.*$", re.IGNORECASE | re.DOTALL)
+_QWEN_OPENAI_COMPAT_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
 DEFAULT_SCRIPT_SYSTEM_PROMPT = """
 # Role: Video Script Generator
@@ -110,6 +111,11 @@ def _extract_qwen_generation_text(response) -> str:
 
     text = _get_response_field(output, "text") if output else None
     return _normalize_text_response(text, "qwen")
+
+
+def _qwen_uses_openai_compatible_api(model_name: str) -> bool:
+    model_name = (model_name or "").lower()
+    return "omni" in model_name or model_name.startswith("qwen3.7")
 
 
 def _generate_response(prompt: str) -> str:
@@ -208,7 +214,9 @@ def _generate_response(prompt: str) -> str:
             elif llm_provider == "qwen":
                 api_key = config.app.get("qwen_api_key")
                 model_name = config.app.get("qwen_model_name")
-                base_url = "***"
+                base_url = config.app.get("qwen_base_url", "")
+                if not base_url:
+                    base_url = _QWEN_OPENAI_COMPAT_BASE_URL
             elif llm_provider == "cloudflare":
                 api_key = config.app.get("cloudflare_api_key")
                 model_name = config.app.get("cloudflare_model_name")
@@ -316,12 +324,13 @@ def _generate_response(prompt: str) -> str:
                 import dashscope
                 from dashscope.api_entities.dashscope_response import GenerationResponse
 
-                if "omni" in model_name.lower():
-                    raise ValueError(
-                        "qwen provider uses DashScope Generation and does not support Qwen-Omni models. "
-                        "Use qwen-max/qwen-plus, or configure DashScope as an OpenAI-compatible provider "
-                        "with base_url https://dashscope.aliyuncs.com/compatible-mode/v1."
+                if _qwen_uses_openai_compatible_api(model_name):
+                    client = OpenAI(api_key=api_key, base_url=base_url)
+                    response = client.chat.completions.create(
+                        model=model_name,
+                        messages=[{"role": "user", "content": prompt}],
                     )
+                    return _extract_chat_completion_text(response, llm_provider)
 
                 dashscope.api_key = api_key
                 response = dashscope.Generation.call(
