@@ -372,6 +372,8 @@ if not config.app.get("hide_config", False):
             if llm_provider == "qwen":
                 if not llm_model_name:
                     llm_model_name = "qwen-max"
+                llm_base_url = ""
+                config.app.pop("qwen_base_url", None)
                 with llm_helper:
                     tips = """
                             ##### 通义千问Qwen 配置说明
@@ -528,6 +530,8 @@ if not config.app.get("hide_config", False):
                 config.app[f"{llm_provider}_api_key"] = st_llm_api_key
             if st_llm_base_url:
                 config.app[f"{llm_provider}_base_url"] = st_llm_base_url
+            else:
+                config.app.pop(f"{llm_provider}_base_url", None)
             if st_llm_model_name:
                 config.app[f"{llm_provider}_model_name"] = st_llm_model_name
             if llm_provider == "ernie":

@@ -316,6 +316,13 @@ def _generate_response(prompt: str) -> str:
                 import dashscope
                 from dashscope.api_entities.dashscope_response import GenerationResponse
 
+                if "omni" in model_name.lower():
+                    raise ValueError(
+                        "qwen provider uses DashScope Generation and does not support Qwen-Omni models. "
+                        "Use qwen-max/qwen-plus, or configure DashScope as an OpenAI-compatible provider "
+                        "with base_url https://dashscope.aliyuncs.com/compatible-mode/v1."
+                    )
+
                 dashscope.api_key = api_key
                 response = dashscope.Generation.call(
                     model=model_name, messages=[{"role": "user", "content": prompt}]
